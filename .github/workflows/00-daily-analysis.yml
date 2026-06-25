@@ -66,13 +66,16 @@ jobs:
           T212_API_SECRET: ${{ secrets.T212_API_SECRET }}
         run: |
           echo "📊 正在从 Trading212 同步投资组合..."
-          T212_STOCKS=$(python3 scripts/t212_portfolio_sync.py 2>&1)
+          # Only capture stdout (stock list), stderr goes to log for diagnostics
+          T212_STOCKS=$(python3 scripts/t212_portfolio_sync.py)
           SYNC_EXIT=$?
           if [ $SYNC_EXIT -eq 0 ] && [ -n "$T212_STOCKS" ]; then
+            # Sanitize: keep only first line (stock list), strip any trailing content
+            T212_STOCKS=$(echo "$T212_STOCKS" | head -1 | tr -d '\n\r')
             echo "✅ T212 同步成功: $T212_STOCKS"
             echo "t212_stocks=$T212_STOCKS" >> $GITHUB_OUTPUT
           else
-            echo "⚠️  T212 同步失败或返回空，使用默认自选股"
+            echo "⚠️  T212 同步失败或返回空，使用手动配置的自选股"
             echo "t212_stocks=" >> $GITHUB_OUTPUT
           fi
       
