@@ -59,6 +59,23 @@ jobs:
         run: |
           mkdir -p data logs reports
       
+      - name: 同步 Trading212 投资组合
+        id: sync-t212
+        env:
+          T212_API_KEY: ${{ secrets.T212_API_KEY }}
+          T212_API_SECRET: ${{ secrets.T212_API_SECRET }}
+        run: |
+          echo "📊 正在从 Trading212 同步投资组合..."
+          T212_STOCKS=$(python3 scripts/t212_portfolio_sync.py 2>&1)
+          SYNC_EXIT=$?
+          if [ $SYNC_EXIT -eq 0 ] && [ -n "$T212_STOCKS" ]; then
+            echo "✅ T212 同步成功: $T212_STOCKS"
+            echo "t212_stocks=$T212_STOCKS" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️  T212 同步失败或返回空，使用默认自选股"
+            echo "t212_stocks=" >> $GITHUB_OUTPUT
+          fi
+      
       - name: 执行股票分析
         env:
           # ==========================================
@@ -391,11 +408,11 @@ jobs:
           REALTIME_SOURCE_PRIORITY: ${{ vars.REALTIME_SOURCE_PRIORITY || 'tencent,akshare_sina,efinance,akshare_em' }}
           
         run: |
-          # 解析自选股配置：
-          # 1. Repository/Environment secrets 或 Repository variables（STOCK_LIST_CONFIG）
-          # 2. 同名 Environment variables 注入的 runner 环境变量（STOCK_LIST）
-          # 3. 最小默认值
-          if [ -n "${STOCK_LIST_CONFIG:-}" ]; then
+          # 解析自选股配置（优先级：T212同步 > 手动配置 > 默认）
+          if [ -n "${{ steps.sync-t212.outputs.t212_stocks }}" ]; then
+            export STOCK_LIST="${{ steps.sync-t212.outputs.t212_stocks }}"
+            echo "📊 使用 Trading212 同步的自选股: $STOCK_LIST"
+          elif [ -n "${STOCK_LIST_CONFIG:-}" ]; then
             export STOCK_LIST="$STOCK_LIST_CONFIG"
           elif [ -z "${STOCK_LIST:-}" ]; then
             export STOCK_LIST="600519"
