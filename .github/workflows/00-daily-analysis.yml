@@ -526,6 +526,33 @@ jobs:
             logs/
           retention-days: 30
       
+      - name: T212 自动交易
+        id: auto-trade
+        if: always()
+        env:
+          T212_API_KEY: ${{ secrets.T212_API_KEY }}
+          T212_API_SECRET: ${{ secrets.T212_API_SECRET }}
+          T212_MIN_SCORE: ${{ vars.T212_MIN_SCORE || secrets.T212_MIN_SCORE || '40' }}
+          T212_MAX_POSITIONS: ${{ vars.T212_MAX_POSITIONS || secrets.T212_MAX_POSITIONS || '5' }}
+          T212_MAX_ALLOCATION_PCT: ${{ vars.T212_MAX_ALLOCATION_PCT || secrets.T212_MAX_ALLOCATION_PCT || '0.25' }}
+        run: |
+          if [ -d "reports" ] && [ "$(ls -A reports/report_*.md 2>/dev/null)" ]; then
+            echo "🤖 启动 T212 自动交易..."
+            python3 scripts/t212_auto_trader.py 2>&1 | tee /tmp/trade_output.txt
+            TRADE_EXIT=${PIPESTATUS[0]}
+            
+            # Send trade summary to Telegram if trades were made
+            if [ -f "data/t212_performance.json" ]; then
+              echo "📊 交易记录已保存"
+            fi
+            
+            if [ $TRADE_EXIT -ne 0 ]; then
+              echo "⚠️  T212 自动交易异常 (exit code: $TRADE_EXIT)"
+            fi
+          else
+            echo "⚠️  无分析报告，跳过自动交易"
+          fi
+      
       - name: 显示运行结果
         if: always()
         run: |
