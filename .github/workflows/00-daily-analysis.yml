@@ -553,6 +553,18 @@ jobs:
             echo "⚠️  无分析报告，跳过自动交易"
           fi
       
+      - name: 发送每日简报
+        id: daily-briefing
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          T212_API_KEY: ${{ secrets.T212_API_KEY }}
+          T212_API_SECRET: ${{ secrets.T212_API_SECRET }}
+        run: |
+          echo "📨 发送每日简报..."
+          python3 scripts/send_briefing.py --send 2>&1
+      
       - name: 显示运行结果
         if: always()
         run: |
